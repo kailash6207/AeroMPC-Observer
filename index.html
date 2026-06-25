@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DroneSim-PREDICT: Control Workstation</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-main: #090d16;
+            --bg-card: #111827;
+            --border-color: #1f2937;
+            --accent-blue: #38bdf8;
+            --accent-green: #10b981;
+            --accent-pink: #ec4899;
+            --accent-purple: #a855f7;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+        }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+            background-color: var(--bg-main); 
+            color: var(--text-primary); 
+            margin: 0; 
+            padding: 16px;
+            box-sizing: border-box;
+            overflow-x: hidden;
+        }
+
+        .dashboard { 
+            max-width: 1600px; 
+            margin: 0 auto; 
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        h1 { 
+            margin: 0; 
+            color: var(--accent-blue); 
+            font-size: 1.8rem;
+            letter-spacing: -0.05em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .subtitle { 
+            color: var(--text-secondary); 
+            margin: 4px 0 0 0; 
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .control-bar { 
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            background: var(--bg-card); 
+            padding: 12px 20px; 
+            border-radius: 12px; 
+            border: 1px solid var(--border-color);
+            margin-bottom: 16px;
+            align-items: center;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .input-group label { 
+            font-size: 0.75rem; 
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .input-group input { 
+            padding: 6px 10px; 
+            border-radius: 6px; 
+            border: 1px solid var(--border-color); 
+            font-size: 0.95rem; 
+            background: #1f2937; 
+            color: white; 
+            font-weight: bold;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 12px;
+            height: 34px;
+            align-self: flex-end;
+        }
+
+        button { 
+            flex: 1;
+            border: none; 
+            border-radius: 6px; 
+            font-weight: bold; 
+            font-size: 0.9rem;
+            cursor: pointer; 
+            transition: all 0.2s ease;
+        }
+
+        #startBtn { background: var(--accent-blue); color: #090d16; }
+        #startBtn:hover { background: #0ea5e9; }
+        
+        #resetBtn { background: #ef4444; color: white; }
+        #resetBtn:hover { background: #dc2626; }
+
+        .stat-card {
+            background: #1f2937;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-blue);
+        }
+        .stat-card.energy { border-left-color: var(--accent-green); }
+
+        .stat-label { font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 2px; font-weight: 600; }
+        .stat-value { font-size: 1.2rem; font-weight: 700; font-family: monospace; }
+
+        .workspace { 
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 16px; 
+            align-items: stretch;
+        }
+
+        @media (max-width: 1024px) {
+            .workspace { grid-template-columns: 1fr; }
+        }
+
+        .panel { 
+            background: var(--bg-card); 
+            border-radius: 12px; 
+            border: 1px solid var(--border-color); 
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .panel-header {
+            margin: 0 0 10px 0;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            font-weight: 700;
+            text-shadow: 0 1px 0 rgba(0,0,0,0.45);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        canvas#droneCanvas { 
+            background: #0d131f; 
+            border-radius: 8px; 
+            border: 1px solid var(--border-color); 
+            width: 100%; 
+            height: 440px; 
+        }
+
+        .charts-column {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .chart-box {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            padding: 12px;
+        }
+
+        .chart-container { 
+            background: #0d131f; 
+            padding: 8px; 
+            border-radius: 8px; 
+            border: 1px solid var(--border-color);
+            height: 175px; 
+            position: relative; 
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <header>
+        <h1>🛸 DRONESIM-PREDICT</h1>
+        <p class="subtitle">Stochastic Predictive Mission Control & Cyber-Physical Workspace</p>
+    </header>
+    
+    <div class="control-bar">
+        <div class="input-group">
+            <label for="targetZ">Baseline Target (m)</label>
+            <input type="number" id="targetZ" value="2.0" step="0.5" min="0.5" max="3.0">
+        </div>
+        
+        <div class="action-btns">
+            <button id="startBtn">Launch Mission</button>
+            <button id="resetBtn">Abort System</button>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">IAE (Tracking Error)</div>
+            <div class="stat-value" id="iaeScore" style="color: var(--accent-blue);">0.00</div>
+        </div>
+
+        <div class="stat-card energy">
+            <div class="stat-label">TCE (Actuator Energy)</div>
+            <div class="stat-value" id="tceScore" style="color: var(--accent-green);">0.00</div>
+        </div>
+    </div>
+
+    <div class="workspace">
+        <div class="panel">
+            <div class="panel-header">🛰️ Kinematic Observer Viewport</div>
+            <canvas id="droneCanvas" width="500" height="440"></canvas>
+        </div>
+
+        <div class="charts-column">
+            <div class="chart-box">
+                <div class="panel-header">📈 Extended Kalman Filter State Estimation Metrics</div>
+                <div class="chart-container">
+                    <canvas id="ekfChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-box">
+                <div class="panel-header">⚡ Actuator Allocation Control Effort</div>
+                <div class="chart-container">
+                    <canvas id="actuatorChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let intervalId = null;
+let currentU1 = 0.0;
+let currentU2 = 0.0;
+
+const timeLabels = [];
+const trueZData = [];
+const estZData = [];
+const noisyZData = [];
+const targetZData = [];
+const u1Data = [];
+const u2Data = [];
+
+Chart.defaults.color = '#e2e8f0';
+Chart.defaults.plugins.legend.labels.boxWidth = 10;
+Chart.defaults.plugins.legend.labels.font = { family: 'Segoe UI', size: 10 };
+
+window.addEventListener('DOMContentLoaded', () => {
+    const ctxEkf = document.getElementById('ekfChart').getContext('2d');
+    const ekfChart = new Chart(ctxEkf, {
+        type: 'line',
+        data: {
+            labels: timeLabels,
+            datasets: [
+                { label: 'Target Command Path', data: targetZData, borderColor: '#a855f7', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, borderDash: [4, 4], tension: 0.15 },
+                { label: 'Raw Noisy Sensor', data: noisyZData, borderColor: '#64748b', backgroundColor: 'transparent', borderWidth: 1, pointRadius: 1.5, tension: 0.1 },
+                { label: 'True Trajectory', data: trueZData, borderColor: '#38bdf8', backgroundColor: 'transparent', borderWidth: 2.5, pointRadius: 0, tension: 0.15 },
+                { label: 'EKF Estimate', data: estZData, borderColor: '#e11d48', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0.15 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            scales: { 
+                y: { type: 'linear', grid: { color: '#1f2937' }, ticks: { color: '#e2e8f0' }, min: -0.5, max: 4.5 },
+                x: { grid: { color: '#1f2937' }, ticks: { color: '#e2e8f0' } }
+            }
+        }
+    });
+
+    const ctxActuator = document.getElementById('actuatorChart').getContext('2d');
+    const actuatorChart = new Chart(ctxActuator, {
+        type: 'line',
+        data: {
+            labels: timeLabels,
+            datasets: [
+                { label: 'Left Motor u1 (N)', data: u1Data, borderColor: '#10b981', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0.15 },
+                { label: 'Right Motor u2 (N)', data: u2Data, borderColor: '#ec4899', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0, tension: 0.15 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            scales: { 
+                y: { type: 'linear', grid: { color: '#1f2937' }, ticks: { color: '#e2e8f0' } },
+                x: { grid: { color: '#1f2937' }, ticks: { color: '#e2e8f0' } }
+            }
+        }
+    });
+
+    const canvas = document.getElementById('droneCanvas');
+    const canvasCtx = canvas.getContext('2d');
+
+    function drawDrone(z, theta) {
+        canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        canvasCtx.strokeStyle = '#111827';
+        canvasCtx.lineWidth = 1;
+        for (let i = 0; i < canvas.width; i += 40) {
+            canvasCtx.beginPath(); canvasCtx.moveTo(i, 0); canvasCtx.lineTo(i, canvas.height); canvasCtx.stroke();
+            canvasCtx.beginPath(); canvasCtx.moveTo(0, i); canvasCtx.lineTo(canvas.width, i); canvasCtx.stroke();
+        }
+
+        let canvasY = 382 - (z * 100);  
+        let canvasX = canvas.width / 2;
+
+        canvasCtx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+        canvasCtx.lineWidth = 1;
+        canvasCtx.setLineDash([4, 6]);
+        canvasCtx.beginPath(); canvasCtx.moveTo(0, canvasY); canvasCtx.lineTo(canvas.width, canvasY); canvasCtx.stroke();
+        canvasCtx.beginPath(); canvasCtx.moveTo(canvasX, 0); canvasCtx.lineTo(canvasX, canvas.height); canvasCtx.stroke();
+        canvasCtx.setLineDash([]);
+
+        canvasCtx.save();
+        canvasCtx.translate(canvasX, canvasY);
+        canvasCtx.rotate(theta);
+
+        canvasCtx.strokeStyle = '#475569'; canvasCtx.lineWidth = 4;
+        canvasCtx.beginPath(); canvasCtx.moveTo(-75, 0); canvasCtx.lineTo(75, 0); canvasCtx.stroke();
+
+        // Left Motor (u1)
+        canvasCtx.fillStyle = '#1e293b'; canvasCtx.strokeStyle = '#64748b'; canvasCtx.lineWidth = 2;
+        canvasCtx.fillRect(-80, -8, 10, 8); canvasCtx.strokeRect(-80, -8, 10, 8);
+        let thrust1 = Math.max(0, currentU1 * 2);
+        if (intervalId && thrust1 > 0) {
+            let grad1 = canvasCtx.createLinearGradient(-75, 0, -75, thrust1);
+            grad1.addColorStop(0, '#10b981'); grad1.addColorStop(1, 'rgba(16, 185, 129, 0)');
+            canvasCtx.fillStyle = grad1; canvasCtx.fillRect(-79, 0, 8, thrust1);
+        }
+
+        // Right Motor (u2)
+        canvasCtx.fillStyle = '#1e293b';
+        canvasCtx.fillRect(70, -8, 10, 8); canvasCtx.strokeRect(70, -8, 10, 8);
+        let thrust2 = Math.max(0, currentU2 * 2);
+        if (intervalId && thrust2 > 0) {
+            let grad2 = canvasCtx.createLinearGradient(75, 0, 75, thrust2);
+            grad2.addColorStop(0, '#ec4899'); grad2.addColorStop(1, 'rgba(236, 72, 153, 0)');
+            canvasCtx.fillStyle = grad2; canvasCtx.fillRect(71, 0, 8, thrust2);
+        }
+
+        // Avionics Pod
+        canvasCtx.fillStyle = 'rgba(30, 58, 138, 0.7)'; canvasCtx.strokeStyle = '#38bdf8'; canvasCtx.lineWidth = 2;
+        canvasCtx.beginPath(); canvasCtx.arc(0, -2, 14, 0, Math.PI, true); canvasCtx.fill(); canvasCtx.stroke();
+        canvasCtx.fillStyle = '#38bdf8'; canvasCtx.beginPath(); canvasCtx.arc(0, -2, 4, 0, Math.PI * 2); canvasCtx.fill();
+
+        canvasCtx.restore();
+
+        // HUD Elements
+        canvasCtx.font = '11px monospace'; canvasCtx.fillStyle = '#e2e8f0';
+        canvasCtx.fillText(`ALTITUDE_Z: ${z.toFixed(2)} m`, 20, 30);
+        canvasCtx.fillText(`PITCH_THETA: ${(theta * (180 / Math.PI)).toFixed(1)}°`, 20, 46);
+
+        // Landing Deck Ground Reference
+        canvasCtx.strokeStyle = '#334155'; canvasCtx.lineWidth = 1; canvasCtx.beginPath();
+        for (let x = 0; x < canvas.width; x += 15) { canvasCtx.moveTo(x, 382); canvasCtx.lineTo(x - 8, 395); }
+        canvasCtx.stroke();
+        canvasCtx.strokeStyle = '#ef4444'; canvasCtx.lineWidth = 3;
+        canvasCtx.beginPath(); canvasCtx.moveTo(0, 382); canvasCtx.lineTo(canvas.width, 382); canvasCtx.stroke();
+    }
+
+    drawDrone(0.0, 0.0);
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+        if (intervalId) clearInterval(intervalId);
+        document.getElementById('startBtn').textContent = 'Mission Live';
+        document.getElementById('startBtn').disabled = true;
+        let stepCount = 0;
+
+        intervalId = setInterval(async () => {
+            try {
+                const targetZ = document.getElementById('targetZ').value;
+                const response = await fetch(`http://127.0.0.1:8000/api/step?target_z=${targetZ}`);
+                const telemetry = await response.json();
+
+                if (telemetry.aborted) {
+                    clearInterval(intervalId);
+                    intervalId = null;
+                    document.getElementById('startBtn').textContent = 'Impact Safe / Terminated';
+                    currentU1 = 0.0;
+                    currentU2 = 0.0;
+                    drawDrone(0.0, 0.0);
+                    return;
+                }
+
+                currentU1 = telemetry.u1;
+                currentU2 = telemetry.u2;
+
+                stepCount++;
+                timeLabels.push((stepCount * 0.05).toFixed(2) + "s");
+                targetZData.push(telemetry.target_z);
+                noisyZData.push(telemetry.noisy_z);
+                trueZData.push(telemetry.true_z);
+                estZData.push(telemetry.est_z);
+                u1Data.push(telemetry.u1);
+                u2Data.push(telemetry.u2);
+
+                document.getElementById('iaeScore').innerText = telemetry.iae.toFixed(2);
+                document.getElementById('tceScore').innerText = telemetry.tce.toFixed(2);
+
+                if (timeLabels.length > 55) {
+                    timeLabels.shift(); targetZData.shift(); noisyZData.shift(); trueZData.shift(); estZData.shift(); u1Data.shift(); u2Data.shift();
+                }
+
+                ekfChart.update('none');
+                actuatorChart.update('none');
+                drawDrone(telemetry.true_z, telemetry.true_theta);
+
+            } catch (err) {
+                console.error("Signal dropout", err);
+            }
+        }, 50);
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+        }
+        
+        // Clear underlying data arrays cleanly while leaving references fully functional
+        timeLabels.length = 0; 
+        targetZData.length = 0; 
+        noisyZData.length = 0; 
+        trueZData.length = 0; 
+        estZData.length = 0; 
+        u1Data.length = 0; 
+        u2Data.length = 0;
+        
+        currentU1 = 0.0;
+        currentU2 = 0.0;
+
+        // Reset tracking charts structure
+        ekfChart.data.labels.length = 0;
+        ekfChart.data.datasets.forEach((dataset) => { dataset.data.length = 0; });
+        ekfChart.update('none'); 
+
+        actuatorChart.data.labels.length = 0;
+        actuatorChart.data.datasets.forEach((dataset) => { dataset.data.length = 0; });
+        actuatorChart.update('none');
+
+        // Reset UI metrics and labels
+        document.getElementById('iaeScore').innerText = "0.00";
+        document.getElementById('tceScore').innerText = "0.00";
+        document.getElementById('startBtn').textContent = 'Launch Mission';
+        document.getElementById('startBtn').disabled = false;
+        
+        drawDrone(0.0, 0.0);
+
+        fetch('http://127.0.0.1:8000/api/reset')
+            .then(res => res.json())
+            .then(data => console.log("Backend state locked to absolute zero:", data))
+            .catch(err => console.error("Reset route sync error:", err));
+    });
+});
+</script>
+</body>
+</html>
